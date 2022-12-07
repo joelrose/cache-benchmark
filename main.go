@@ -3,12 +3,14 @@ package main
 import (
 	"context"
 	"log"
-	"strconv"
-	"time"
 
 	"github.com/joelrose/etcd-redis/cache"
 	"github.com/joelrose/etcd-redis/etcd"
 	"github.com/joelrose/etcd-redis/redis"
+)
+
+const (
+	OperationCount = 10000
 )
 
 func main() {
@@ -27,55 +29,13 @@ func main() {
 	}
 	defer redisClient.Close()
 
-	type test struct {
-		name  string
-		cache cache.Cache
-	}
-
-	tests := []test{
-		{
-			name:  "Redis",
-			cache: redisClient,
-		},
-		{
-			name:  "etcd",
-			cache: etcdClient,
-		},
-	}
-
 	ctx, cancel := context.WithCancel(context.Background())
 
-	for _, test := range tests {
-		log.Printf("Starting Set test with %v", test.name)
+	redisBenchmark := cache.NewBenchmark(ctx, redisClient, "Redis")
+	redisBenchmark.Run()
 
-		startTime := time.Now()
-
-		for i := 0; i < 10000; i++ {
-			err = test.cache.Set(ctx, strconv.Itoa(i), strconv.Itoa(i))
-			if err != nil {
-				log.Fatalf("One operation failed: %v", err)
-			}
-		}
-
-		elapsedTime := time.Since(startTime)
-		log.Printf("Operation took: %s", elapsedTime)
-	}
-
-	for _, test := range tests {
-		log.Printf("Starting Get test with %v", test.name)
-
-		startTime := time.Now()
-
-		for i := 0; i < 10000; i++ {
-			_, err := test.cache.Get(ctx, strconv.Itoa(i))
-			if err != nil {
-				log.Fatalf("One operation failed: %v", err)
-			}
-		}
-
-		elapsedTime := time.Since(startTime)
-		log.Printf("Operation took: %s", elapsedTime)
-	}
+	etcdBenchmark := cache.NewBenchmark(ctx, etcdClient, "etcd")
+	etcdBenchmark.Run()
 
 	cancel()
 }
