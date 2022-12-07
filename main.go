@@ -3,7 +3,10 @@ package main
 import (
 	"context"
 	"log"
+	"strconv"
+	"time"
 
+	"github.com/joelrose/etcd-redis/cache"
 	"github.com/joelrose/etcd-redis/etcd"
 	"github.com/joelrose/etcd-redis/redis"
 )
@@ -12,28 +15,66 @@ func main() {
 	etcdEndpoint := "http://localhost:2379"
 	redisAddress := "localhost:6379"
 
-	cache1, err := etcd.New(etcdEndpoint)
+	etcdClient, err := etcd.New(etcdEndpoint)
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer cache1.Close()
+	defer etcdClient.Close()
 
-	cache2 := redis.New(redisAddress)
+	redisClient := redis.New(redisAddress)
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer cache2.Close()
+	defer redisClient.Close()
+
+	type test struct {
+		name  string
+		cache cache.Cache
+	}
+
+	tests := []test{
+		{
+			name:  "Redis",
+			cache: redisClient,
+		},
+		{
+			name:  "etcd",
+			cache: etcdClient,
+		},
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	err = cache1.Set(ctx, "test", "12345")
-	if err != nil {
-		log.Fatalf("cannot set value %v", err)
+	for _, test := range tests {
+		log.Printf("Starting Set test with %v", test.name)
+
+		startTime := time.Now()
+
+		for i := 0; i < 10000; i++ {
+			err = test.cache.Set(ctx, strconv.Itoa(i), strconv.Itoa(i))
+			if err != nil {
+				log.Fatalf("One operation failed: %v", err)
+			}
+		}
+
+		elapsedTime := time.Since(startTime)
+		log.Printf("Operation took: %s", elapsedTime)
 	}
 
-	err = cache2.Set(ctx, "test", "12345")
-	if err != nil {
-		log.Fatalf("cannot set value cache2 %v", err)
+	for _, test := range tests {
+		log.Printf("Starting Get test with %v", test.name)
+
+		startTime := time.Now()
+
+		for i := 0; i < 10000; i++ {
+			_, err := test.cache.Get(ctx, strconv.Itoa(i))
+			if err != nil {
+				log.Fatalf("One operation failed: %v", err)
+			}
+		}
+
+		elapsedTime := time.Since(startTime)
+		log.Printf("Operation took: %s", elapsedTime)
 	}
 
 	cancel()

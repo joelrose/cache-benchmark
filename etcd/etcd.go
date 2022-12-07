@@ -3,7 +3,6 @@ package etcd
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/joelrose/etcd-redis/cache"
 	etcd "go.etcd.io/etcd/client/v3"
@@ -15,8 +14,7 @@ type Etcd struct {
 
 func New(url string) (cache.Cache, error) {
 	client, err := etcd.New(etcd.Config{
-		Endpoints:   []string{url},
-		DialTimeout: 1 * time.Second,
+		Endpoints: []string{url},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to etcd: %v", err)
@@ -35,7 +33,7 @@ func (e Etcd) Get(ctx context.Context, key string) (string, error) {
 }
 
 func (e Etcd) Set(ctx context.Context, key string, value string) error {
-	_, err := e.client.Put(ctx, key, string(value))
+	_, err := e.client.Put(ctx, key, value)
 	return err
 }
 
