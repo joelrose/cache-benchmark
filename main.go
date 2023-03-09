@@ -30,12 +30,11 @@ func main() {
 	defer redisClient.Close()
 
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	redisBenchmark := cache.NewBenchmark(ctx, redisClient, "Redis")
 	redisBenchmark.Run()
 
 	etcdBenchmark := cache.NewBenchmark(ctx, etcdClient, "etcd")
 	etcdBenchmark.Run()
-
-	cancel()
 }
